@@ -1,24 +1,4 @@
-/**
- * Copyright (c) 2021 Yuyang Qi
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- * 
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
-*/
+/* Github source: https://github.com/xuxpp/simplewav */
 
 #include <stdio.h>
 #include <stdint.h>
@@ -73,7 +53,6 @@ static void parse_header(wav_t *w)
     w->n_channels               =  w->h->num_channels;
     w->bytes_per_sample         =  w->h->bits_per_sample / 8;
     w->bytes_per_sample_all_chn =  w->bytes_per_sample * w->n_channels;
-    w->data_len                 =  w->h->subchunk2_size;
 }
 
 static void reallocate_memory(wav_t *w, size_t new_size)
@@ -173,6 +152,7 @@ wav_t *wav_open(const char *file_name, const char* mode)
     w->fp = fopen(file_name, mode);
     w->h = (header_t *)w->f_buf;
 
+    // Read mode
     if (strcmp(mode, "r") == 0)
     {
         // Get file size:
@@ -189,12 +169,30 @@ wav_t *wav_open(const char *file_name, const char* mode)
         if (act_read != w->f_len)
             fprintf(stderr, "Unable to read all bytes! Exp: %ld, Act: %ld\n", w->f_len, act_read);
 
-        parse_header(w);
-    }
-    if (strcmp(mode, "w") == 0 || strcmp(mode, "w+") == 0)
-        w->f_len = sizeof(header_t);
+        // Find subchunk data
+        size_t chunk_data_idx = 0;
+        while (chunk_data_idx < w->f_len && *(uint32_t *)&w->f_buf[chunk_data_idx] != WAV_DATA_CHUNK_ID)
+            chunk_data_idx += sizeof(uint32_t);
+        if (chunk_data_idx >= w->f_len)
+        {
+            fprintf(stderr, "Unabled to find subchunk data. Returning NULL.\n");
+            wav_close(w);
+            return NULL;
+        }
+        else
+        {
+            w->data = &w->f_buf[chunk_data_idx + 8]; // Subchunk ID + Subchunk Size
+        }
 
-    w->data = &w->f_buf[sizeof(header_t)];
+        parse_header(w);
+        w->data_len = *(uint32_t *)&w->f_buf[chunk_data_idx + 4];
+    }
+    // Write mode
+    else if (strcmp(mode, "w") == 0 || strcmp(mode, "w+") == 0)
+    {
+        w->f_len = sizeof(header_t);
+        w->data = &w->f_buf[sizeof(header_t)];
+    }
 
     return w;
 }
