@@ -22,6 +22,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -44,3 +48,8 @@ void wav_write(wav_t *w);
 
 wav_t *wav_open(const char *file_name, const char* mode);
 void   wav_close(wav_t *w);
+
+
+#ifdef __cplusplus
+}
+#endif
