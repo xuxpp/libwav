@@ -219,10 +219,9 @@ wav_t *wav_open(const char *file_name, const char* mode)
 
 void wav_close(wav_t *w)
 {
-    if (w)
-    {
-        fclose(w->fp);
-        free(w->f_buf);
-        free(w);
-    }
+    if (w->f_len != ftell(w->fp))
+        wav_write(w);
+    fclose(w->fp);
+    free(w->f_buf);
+    free(w);
 }
